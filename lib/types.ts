@@ -32,11 +32,7 @@ export type ScoreResult = {
   isIncomplete: boolean;
 };
 
-export type ApprovalStatus =
-  | "PENDENTE"
-  | "APROVADA"
-  | "REJEITADA"
-  | "AGUARDAR_JURIDICO";
+export type ApprovalStatus = "PENDENTE" | "APROVADA" | "REJEITADA";
 
 export type ApprovalRecord = {
   carimbo: string;

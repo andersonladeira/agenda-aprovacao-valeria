@@ -27,8 +27,7 @@ export function AgendaCard({
   const [saving, setSaving] = useState<ApprovalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const currentStatus: ApprovalStatus =
-    approval?.status ?? (score.legalHold ? "AGUARDAR_JURIDICO" : "PENDENTE");
+  const currentStatus: ApprovalStatus = approval?.status ?? "PENDENTE";
 
   async function decide(status: ApprovalStatus) {
     setSaving(status);
@@ -197,13 +196,6 @@ export function AgendaCard({
             className="rounded-lg bg-red-600 text-white text-sm font-medium px-3 py-1.5 hover:bg-red-700 disabled:opacity-60"
           >
             {saving === "REJEITADA" ? "Salvando..." : "Rejeitar"}
-          </button>
-          <button
-            onClick={() => decide("AGUARDAR_JURIDICO")}
-            disabled={saving !== null}
-            className="rounded-lg bg-amber-500 text-white text-sm font-medium px-3 py-1.5 hover:bg-amber-600 disabled:opacity-60"
-          >
-            {saving === "AGUARDAR_JURIDICO" ? "Salvando..." : "Aguardar Jurídico"}
           </button>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}

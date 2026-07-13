@@ -4,22 +4,21 @@ export const STATUS_LABELS: Record<ApprovalStatus, string> = {
   PENDENTE: "Pendente",
   APROVADA: "Aprovada",
   REJEITADA: "Rejeitada",
-  AGUARDAR_JURIDICO: "Aguardar Jurídico",
 };
 
 export const STATUS_COLORS: Record<ApprovalStatus, string> = {
   PENDENTE: "bg-slate-100 text-slate-700 border-slate-200",
   APROVADA: "bg-emerald-50 text-emerald-700 border-emerald-200",
   REJEITADA: "bg-red-50 text-red-700 border-red-200",
-  AGUARDAR_JURIDICO: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
 export const STATUS_DOT_COLORS: Record<ApprovalStatus, string> = {
   PENDENTE: "bg-slate-400",
   APROVADA: "bg-emerald-500",
   REJEITADA: "bg-red-500",
-  AGUARDAR_JURIDICO: "bg-amber-500",
 };
+
+const VALID_STATUSES: ApprovalStatus[] = ["PENDENTE", "APROVADA", "REJEITADA"];
 
 export const BAND_COLORS: Record<string, string> = {
   PRIORIDADE_MAXIMA: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -29,8 +28,10 @@ export const BAND_COLORS: Record<string, string> = {
 };
 
 export function statusOf(item: AgendaWithApproval): ApprovalStatus {
-  if (item.approval) return item.approval.status;
-  if (item.score.legalHold) return "AGUARDAR_JURIDICO";
+  const status = item.approval?.status;
+  // Normaliza status antigos/desconhecidos (ex.: "AGUARDAR_JURIDICO" gravado antes
+  // dessa opção ser removida) de volta pra Pendente, em vez de quebrar a exibição.
+  if (status && VALID_STATUSES.includes(status)) return status;
   return "PENDENTE";
 }
 

@@ -54,7 +54,6 @@ export function Dashboard() {
       PENDENTE: 0,
       APROVADA: 0,
       REJEITADA: 0,
-      AGUARDAR_JURIDICO: 0,
     };
     for (const item of items) {
       const s = statusOf(item);
@@ -77,7 +76,6 @@ export function Dashboard() {
 
   const filters: { key: Filter; label: string }[] = [
     { key: "PENDENTES", label: `Pendentes (${counts.PENDENTES})` },
-    { key: "AGUARDAR_JURIDICO", label: `Aguardar Jurídico (${counts.AGUARDAR_JURIDICO})` },
     { key: "APROVADA", label: `Aprovadas (${counts.APROVADA})` },
     { key: "REJEITADA", label: `Rejeitadas (${counts.REJEITADA})` },
     { key: "TODAS", label: `Todas (${counts.TODAS})` },

@@ -4,12 +4,7 @@ import { upsertOfficialAgendaRow, markOfficialAgendaRevoked } from "@/lib/offici
 import { APPROVER_COOKIE_NAME } from "@/lib/auth";
 import { ApprovalStatus } from "@/lib/types";
 
-const VALID_STATUSES: ApprovalStatus[] = [
-  "PENDENTE",
-  "APROVADA",
-  "REJEITADA",
-  "AGUARDAR_JURIDICO",
-];
+const VALID_STATUSES: ApprovalStatus[] = ["PENDENTE", "APROVADA", "REJEITADA"];
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
