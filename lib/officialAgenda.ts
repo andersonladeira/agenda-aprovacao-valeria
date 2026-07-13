@@ -1,8 +1,13 @@
 import { google, sheets_v4 } from "googleapis";
 import { getGoogleAuth } from "./googleAuth";
-import { AgendaRecord, ApprovalRecord } from "./types";
+import { AgendaRecord, ApprovalRecord, ApprovalStatus } from "./types";
 
-const SHEET_TAB_NAME = "Aprovadas";
+/** Abas com histórico próprio, uma por decisão que gera acompanhamento. */
+const TABS: Partial<Record<ApprovalStatus, string>> = {
+  APROVADA: "Aprovadas",
+  REJEITADA: "Recusados",
+};
+const ALL_TAB_NAMES = Object.values(TABS);
 
 const HEADERS = [
   "Carimbo",
@@ -23,9 +28,9 @@ const HEADERS = [
   "Tempo previsto de fala",
   "Quem convidou",
   "Assessora",
-  "Aprovado por",
-  "Data da aprovação",
-  "Comentário da aprovação",
+  "Decidido por",
+  "Data da decisão",
+  "Comentário da decisão",
   "Score",
 ];
 
@@ -57,20 +62,20 @@ export function getOfficialAgendaInfo(): OfficialAgendaInfo | null {
   return { spreadsheetId, webViewLink: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` };
 }
 
-async function ensureTab(sheets: sheets_v4.Sheets, spreadsheetId: string): Promise<void> {
+async function ensureTab(sheets: sheets_v4.Sheets, spreadsheetId: string, tabName: string): Promise<void> {
   const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET_TAB_NAME);
+  const exists = meta.data.sheets?.some((s) => s.properties?.title === tabName);
 
   if (!exists) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
-        requests: [{ addSheet: { properties: { title: SHEET_TAB_NAME } } }],
+        requests: [{ addSheet: { properties: { title: tabName } } }],
       },
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${SHEET_TAB_NAME}'!A1`,
+      range: `'${tabName}'!A1`,
       valueInputOption: "RAW",
       requestBody: { values: [HEADERS] },
     });
@@ -105,35 +110,32 @@ function buildRow(agenda: AgendaRecord, approval: ApprovalRecord): string[] {
   ];
 }
 
-/** Grava (cria ou atualiza) a linha de uma agenda aprovada. Não faz nada se a planilha oficial ainda não foi configurada. */
-export async function upsertOfficialAgendaRow(agenda: AgendaRecord, approval: ApprovalRecord): Promise<void> {
-  const info = getOfficialAgendaInfo();
-  if (!info) return;
-
+async function upsertRowInTab(
+  spreadsheetId: string,
+  tabName: string,
+  agenda: AgendaRecord,
+  approval: ApprovalRecord
+): Promise<void> {
   const sheets = getSheetsClient();
-  await ensureTab(sheets, info.spreadsheetId);
+  await ensureTab(sheets, spreadsheetId, tabName);
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: info.spreadsheetId,
-    range: `'${SHEET_TAB_NAME}'`,
-  });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `'${tabName}'` });
   const rows = (res.data.values as string[][]) ?? [HEADERS];
   const rowValues = buildRow(agenda, approval);
-
   const existingIndex = rows.findIndex((row, i) => i > 0 && row[0] === agenda.carimbo);
 
   if (existingIndex > 0) {
     const rowNumber = existingIndex + 1;
     await sheets.spreadsheets.values.update({
-      spreadsheetId: info.spreadsheetId,
-      range: `'${SHEET_TAB_NAME}'!A${rowNumber}`,
+      spreadsheetId,
+      range: `'${tabName}'!A${rowNumber}`,
       valueInputOption: "RAW",
       requestBody: { values: [rowValues] },
     });
   } else {
     await sheets.spreadsheets.values.append({
-      spreadsheetId: info.spreadsheetId,
-      range: `'${SHEET_TAB_NAME}'!A1`,
+      spreadsheetId,
+      range: `'${tabName}'!A1`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [rowValues] },
@@ -142,30 +144,52 @@ export async function upsertOfficialAgendaRow(agenda: AgendaRecord, approval: Ap
 }
 
 /**
- * Quando uma agenda que já tinha sido aprovada muda de decisão (rejeitada,
- * volta pra pendente, etc.), marcamos a linha existente como revogada em vez
- * de apagar — mantém o histórico visível pra quem já estava usando a
- * planilha pra montar a agenda oficial. Não faz nada se a planilha oficial
- * não estiver configurada ou a linha não existir.
+ * Quando uma agenda que já tinha linha numa dessas abas muda de decisão,
+ * marcamos a linha existente como revogada em vez de apagar — mantém o
+ * histórico visível. Não faz nada se a aba/linha não existir.
  */
-export async function markOfficialAgendaRevoked(carimbo: string, novoStatus: string): Promise<void> {
-  const info = getOfficialAgendaInfo();
-  if (!info) return;
-
+async function markRevokedInTab(
+  spreadsheetId: string,
+  tabName: string,
+  carimbo: string,
+  novoStatus: string
+): Promise<void> {
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: info.spreadsheetId,
-    range: `'${SHEET_TAB_NAME}'`,
-  });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `'${tabName}'` });
   const rows = (res.data.values as string[][]) ?? [];
   const existingIndex = rows.findIndex((row, i) => i > 0 && row[0] === carimbo);
   if (existingIndex <= 0) return;
 
+  // Já está marcada como revogada com o mesmo status atual — evita escrita desnecessária.
+  if (rows[existingIndex][1]?.includes(`decisão atual: ${novoStatus}`)) return;
+
   const rowNumber = existingIndex + 1;
   await sheets.spreadsheets.values.update({
-    spreadsheetId: info.spreadsheetId,
-    range: `'${SHEET_TAB_NAME}'!B${rowNumber}`,
+    spreadsheetId,
+    range: `'${tabName}'!B${rowNumber}`,
     valueInputOption: "RAW",
     requestBody: { values: [[`REVOGADA (decisão atual: ${novoStatus})`]] },
   });
+}
+
+/**
+ * Sincroniza a planilha oficial com a decisão atual de uma agenda: grava a
+ * linha na aba correspondente ao status atual (Aprovadas ou Recusados) e
+ * marca como revogada qualquer linha remanescente nas outras abas — por
+ * exemplo, se uma agenda que estava em Recusados passa a ser Aprovada. Não
+ * faz nada se a planilha oficial não estiver configurada (OFFICIAL_AGENDA_SHEET_ID).
+ */
+export async function syncOfficialAgenda(agenda: AgendaRecord | null, approval: ApprovalRecord): Promise<void> {
+  const info = getOfficialAgendaInfo();
+  if (!info) return;
+
+  const targetTab = TABS[approval.status];
+
+  for (const tabName of ALL_TAB_NAMES) {
+    if (tabName === targetTab && agenda) {
+      await upsertRowInTab(info.spreadsheetId, tabName!, agenda, approval);
+    } else {
+      await markRevokedInTab(info.spreadsheetId, tabName!, approval.carimbo, approval.status);
+    }
+  }
 }

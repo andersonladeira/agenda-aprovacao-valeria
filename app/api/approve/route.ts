@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertApproval } from "@/lib/sheets";
-import { upsertOfficialAgendaRow, markOfficialAgendaRevoked } from "@/lib/officialAgenda";
+import { syncOfficialAgenda } from "@/lib/officialAgenda";
 import { APPROVER_COOKIE_NAME } from "@/lib/auth";
 import { ApprovalStatus } from "@/lib/types";
 
@@ -32,12 +32,7 @@ export async function POST(request: NextRequest) {
   };
 
   await upsertApproval(approval);
-
-  if (status === "APROVADA" && agenda) {
-    await upsertOfficialAgendaRow(agenda, approval);
-  } else {
-    await markOfficialAgendaRevoked(carimbo, status);
-  }
+  await syncOfficialAgenda(agenda ?? null, approval);
 
   return NextResponse.json({ ok: true });
 }

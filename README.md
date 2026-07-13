@@ -8,8 +8,9 @@ com a mesma metodologia de Score de Validação usada nos relatórios automátic
 - As decisões de aprovação são gravadas em uma aba nova, **"Aprovações"**, criada automaticamente
   na mesma planilha — nada é sobrescrito na aba de respostas do formulário.
 - Visualização em **lista** ou em **calendário** (por mês), com os mesmos filtros.
-- Agendas aprovadas podem ser espelhadas numa **planilha de Agenda Oficial** separada (opcional, veja
-  item 1.1), pronta pra inclusão manual na agenda real da Deputada.
+- Agendas aprovadas ou recusadas podem ser espelhadas numa **planilha de Agenda Oficial** separada
+  (opcional, veja item 1.1), em abas "Aprovadas" e "Recusados", prontas pra inclusão manual na agenda
+  real da Deputada.
 - Acesso protegido por senha compartilhada (`APP_PASSWORD`).
 
 ## 1. Criar a credencial do Google (Service Account)
@@ -37,14 +38,17 @@ sistema (sem depender do login de uma pessoa).
 
 ## 1.1 (Opcional) Planilha de Agenda Oficial
 
-Quando uma agenda é aprovada, o sistema pode gravar os dados completos dela (data, local, contato de
-quem recebe, etc.) numa planilha separada, pronta pra alguém incluir manualmente na agenda oficial da
-Deputada. Pra ativar isso:
+Quando uma agenda é aprovada ou recusada, o sistema pode gravar os dados completos dela (data, local,
+contato de quem recebe, etc.) numa planilha separada, com uma aba **"Aprovadas"** e uma aba
+**"Recusados"** — pronta pra alguém incluir manualmente na agenda oficial da Deputada. Se uma decisão
+muda depois (ex.: uma agenda aprovada passa a ser recusada), a linha na aba antiga fica marcada como
+"REVOGADA" em vez de apagada. Pra ativar isso:
 
-1. Crie uma planilha Google nova e vazia (ex: "Agenda Oficial - Aprovações").
+1. Crie uma planilha Google nova e vazia (ex: "Agenda Oficial - Valéria Bolsonaro").
 2. Compartilhe com o mesmo `client_email` da service account, como **Editor**.
 3. Copie o ID dela (a parte da URL entre `/d/` e `/edit`) na variável `OFFICIAL_AGENDA_SHEET_ID`.
 
+As abas "Aprovadas" e "Recusados" são criadas automaticamente na primeira vez que forem necessárias.
 Se essa variável ficar em branco, o sistema funciona normalmente, só sem essa planilha extra.
 
 ## 2. Configurar variáveis de ambiente

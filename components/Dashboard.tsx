@@ -100,7 +100,7 @@ export function Dashboard() {
                 rel="noopener noreferrer"
                 className="text-slate-600 hover:text-slate-900 underline decoration-slate-300"
               >
-                Agenda Oficial (Aprovadas)
+                Agenda Oficial (Aprovadas/Recusados)
               </a>
             )}
             <span className="text-slate-500">{approverName}</span>
