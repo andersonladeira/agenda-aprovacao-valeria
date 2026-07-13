@@ -8,7 +8,7 @@ const VALID_STATUSES: ApprovalStatus[] = ["PENDENTE", "APROVADA", "REJEITADA"];
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { carimbo, nomeEvento, assessor, status, comentario, scoreBase, faixa, agenda } = body;
+  const { carimbo, nomeEvento, assessor, status, comentario, scoreBase, faixa, agenda, okRonaldo, okValeria } = body;
 
   if (!carimbo || !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
     comentario: comentario ?? "",
     scoreBase: Number(scoreBase ?? 0),
     faixa: faixa ?? "REAVALIAR",
+    okRonaldo: Boolean(okRonaldo),
+    okValeria: Boolean(okValeria),
   };
 
   await upsertApproval(approval);

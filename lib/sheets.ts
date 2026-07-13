@@ -15,6 +15,8 @@ const APROVACOES_HEADERS = [
   "Comentário",
   "Score base",
   "Faixa",
+  "Ok Ronaldo",
+  "Ok Valéria",
 ];
 
 let cachedClient: sheets_v4.Sheets | null = null;
@@ -89,6 +91,25 @@ async function ensureApprovalsSheet(client: sheets_v4.Sheets, spreadsheetId: str
       valueInputOption: "RAW",
       requestBody: { values: [APROVACOES_HEADERS] },
     });
+    return;
+  }
+
+  // A aba já existia (de antes de alguma coluna ser adicionada, ex.: "Ok
+  // Ronaldo"/"Ok Valéria") — garante que o cabeçalho tenha todas as colunas
+  // atuais, sem mexer nas linhas de dados já gravadas.
+  const headerRes = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${APROVACOES_SHEET_NAME}'!1:1`,
+  });
+  const currentHeader = (headerRes.data.values?.[0] as string[]) ?? [];
+  const isUpToDate = APROVACOES_HEADERS.every((h, i) => currentHeader[i] === h);
+  if (!isUpToDate) {
+    await client.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${APROVACOES_SHEET_NAME}'!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [APROVACOES_HEADERS] },
+    });
   }
 }
 
@@ -119,6 +140,8 @@ export async function getApprovals(): Promise<Map<string, ApprovalRecord>> {
       comentario: r["Comentário"] ?? "",
       scoreBase: Number(r["Score base"] ?? 0),
       faixa: (r["Faixa"] as ApprovalRecord["faixa"]) || "REAVALIAR",
+      okRonaldo: r["Ok Ronaldo"] === "Sim",
+      okValeria: r["Ok Valéria"] === "Sim",
     });
   }
   return map;
@@ -145,6 +168,8 @@ export async function upsertApproval(record: ApprovalRecord): Promise<void> {
     record.comentario,
     String(record.scoreBase),
     record.faixa,
+    record.okRonaldo ? "Sim" : "",
+    record.okValeria ? "Sim" : "",
   ];
 
   const existingIndex = rows.findIndex((row, i) => i > 0 && row[0] === record.carimbo);
@@ -164,6 +189,55 @@ export async function upsertApproval(record: ApprovalRecord): Promise<void> {
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [rowValues] },
+    });
+  }
+}
+
+const CHECKLIST_COLUMNS = { okRonaldo: "J", okValeria: "K" } as const;
+
+/**
+ * Marca/desmarca um dos checkboxes de conferência (Ok Ronaldo / Ok Valéria)
+ * sem mexer no resto da linha. Se a agenda ainda não tiver nenhuma decisão
+ * registrada, cria uma linha nova com status Pendente.
+ */
+export async function updateChecklistField(
+  agendaMeta: { carimbo: string; nomeEvento: string; assessor: string; scoreBase: number; faixa: ApprovalRecord["faixa"] },
+  field: "okRonaldo" | "okValeria",
+  value: boolean
+): Promise<void> {
+  const client = getClient();
+  const spreadsheetId = getSheetId();
+  await ensureApprovalsSheet(client, spreadsheetId);
+
+  const res = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${APROVACOES_SHEET_NAME}'`,
+  });
+  const rows = (res.data.values as string[][]) ?? [APROVACOES_HEADERS];
+  const existingIndex = rows.findIndex((row, i) => i > 0 && row[0] === agendaMeta.carimbo);
+
+  if (existingIndex > 0) {
+    const rowNumber = existingIndex + 1;
+    const column = CHECKLIST_COLUMNS[field];
+    await client.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${APROVACOES_SHEET_NAME}'!${column}${rowNumber}`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[value ? "Sim" : ""]] },
+    });
+  } else {
+    await upsertApproval({
+      carimbo: agendaMeta.carimbo,
+      nomeEvento: agendaMeta.nomeEvento,
+      assessor: agendaMeta.assessor,
+      status: "PENDENTE",
+      aprovador: "",
+      dataDecisao: "",
+      comentario: "",
+      scoreBase: agendaMeta.scoreBase,
+      faixa: agendaMeta.faixa,
+      okRonaldo: field === "okRonaldo" ? value : false,
+      okValeria: field === "okValeria" ? value : false,
     });
   }
 }

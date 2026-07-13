@@ -26,6 +26,9 @@ export function AgendaCard({
   const [comentario, setComentario] = useState(approval?.comentario ?? "");
   const [saving, setSaving] = useState<ApprovalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [okRonaldo, setOkRonaldo] = useState(approval?.okRonaldo ?? false);
+  const [okValeria, setOkValeria] = useState(approval?.okValeria ?? false);
+  const [savingChecklist, setSavingChecklist] = useState<"okRonaldo" | "okValeria" | null>(null);
 
   const currentStatus: ApprovalStatus = approval?.status ?? "PENDENTE";
 
@@ -45,6 +48,8 @@ export function AgendaCard({
           scoreBase: score.scoreBase,
           faixa: score.band,
           agenda,
+          okRonaldo,
+          okValeria,
         }),
       });
       if (!res.ok) throw new Error("Falha ao salvar a decisão.");
@@ -53,6 +58,34 @@ export function AgendaCard({
       setError(e instanceof Error ? e.message : "Erro ao salvar.");
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function toggleChecklist(field: "okRonaldo" | "okValeria", value: boolean) {
+    const setState = field === "okRonaldo" ? setOkRonaldo : setOkValeria;
+    setState(value);
+    setSavingChecklist(field);
+    setError(null);
+    try {
+      const res = await fetch("/api/checklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carimbo: agenda.carimbo,
+          nomeEvento: agenda.nomeEvento,
+          assessor: agenda.assessor,
+          scoreBase: score.scoreBase,
+          faixa: score.band,
+          field,
+          value,
+        }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar.");
+    } catch (e) {
+      setState(!value); // reverte em caso de erro
+      setError(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally {
+      setSavingChecklist(null);
     }
   }
 
@@ -67,11 +100,35 @@ export function AgendaCard({
             Recebido em {formatCarimbo(agenda.carimbo)}
           </p>
         </div>
-        <span
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_COLORS[currentStatus]}`}
-        >
-          {STATUS_LABELS[currentStatus]}
-        </span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_COLORS[currentStatus]}`}
+          >
+            {STATUS_LABELS[currentStatus]}
+          </span>
+          <div className="flex gap-3 text-xs text-slate-600">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={okRonaldo}
+                onChange={(e) => toggleChecklist("okRonaldo", e.target.checked)}
+                disabled={savingChecklist !== null}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+              />
+              Ok Ronaldo
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={okValeria}
+                onChange={(e) => toggleChecklist("okValeria", e.target.checked)}
+                disabled={savingChecklist !== null}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+              />
+              Ok Valéria
+            </label>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">

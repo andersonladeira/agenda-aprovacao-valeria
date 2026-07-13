@@ -44,6 +44,8 @@ export type ApprovalRecord = {
   comentario: string;
   scoreBase: number;
   faixa: ScoreBand;
+  okRonaldo: boolean;
+  okValeria: boolean;
 };
 
 export type AgendaWithApproval = {
