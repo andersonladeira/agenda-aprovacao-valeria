@@ -28,11 +28,34 @@ function getEnv(name: string): string {
 
 let cachedClient: sheets_v4.Sheets | null = null;
 
+/**
+ * Normaliza a chave privada colada em variáveis de ambiente: remove aspas
+ * externas que sobram ao copiar de um .env, e converte "\n" literais em
+ * quebras de linha reais (o formato PEM exige quebras de linha de verdade).
+ */
+function normalizePrivateKey(raw: string): string {
+  let key = raw.trim();
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1);
+  }
+  return key.replace(/\\n/g, "\n").trim();
+}
+
 function getClient(): sheets_v4.Sheets {
   if (cachedClient) return cachedClient;
 
   const email = getEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = getEnv("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const privateKey = normalizePrivateKey(getEnv("GOOGLE_PRIVATE_KEY"));
+
+  if (!privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
+    throw new Error(
+      "GOOGLE_PRIVATE_KEY não parece um PEM válido (faltando o cabeçalho -----BEGIN PRIVATE KEY-----). " +
+        "Confira se o valor colado nas variáveis de ambiente não incluiu aspas extras ou ficou cortado."
+    );
+  }
 
   const auth = new google.auth.JWT({
     email,
