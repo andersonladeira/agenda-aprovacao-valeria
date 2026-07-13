@@ -3,34 +3,7 @@
 import { useState } from "react";
 import { AgendaWithApproval, ApprovalStatus } from "@/lib/types";
 import { BAND_LABELS } from "@/lib/score";
-
-const STATUS_LABELS: Record<ApprovalStatus, string> = {
-  PENDENTE: "Pendente",
-  APROVADA: "Aprovada",
-  REJEITADA: "Rejeitada",
-  AGUARDAR_JURIDICO: "Aguardar Jurídico",
-};
-
-const STATUS_COLORS: Record<ApprovalStatus, string> = {
-  PENDENTE: "bg-slate-100 text-slate-700 border-slate-200",
-  APROVADA: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  REJEITADA: "bg-red-50 text-red-700 border-red-200",
-  AGUARDAR_JURIDICO: "bg-amber-50 text-amber-700 border-amber-200",
-};
-
-const BAND_COLORS: Record<string, string> = {
-  PRIORIDADE_MAXIMA: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  ESTRATEGICA: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  INSTITUCIONAL: "bg-orange-50 text-orange-700 border-orange-200",
-  REAVALIAR: "bg-red-50 text-red-700 border-red-200",
-};
-
-function formatCarimbo(carimbo: string): string {
-  const match = carimbo.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-  if (!match) return carimbo;
-  const [, dd, mm, yyyy, hh, min] = match;
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-}
+import { STATUS_LABELS, STATUS_COLORS, BAND_COLORS, formatCarimbo } from "@/lib/ui";
 
 function Field({ label, value }: { label: string; value?: string }) {
   const display = value && value.trim().length > 0 ? value : "—";
@@ -72,6 +45,7 @@ export function AgendaCard({
           comentario,
           scoreBase: score.scoreBase,
           faixa: score.band,
+          agenda,
         }),
       });
       if (!res.ok) throw new Error("Falha ao salvar a decisão.");

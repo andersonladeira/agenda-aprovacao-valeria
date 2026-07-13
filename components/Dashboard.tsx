@@ -4,14 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AgendaWithApproval, ApprovalStatus } from "@/lib/types";
 import { AgendaCard } from "./AgendaCard";
+import { CalendarView } from "./CalendarView";
+import { Modal } from "./Modal";
+import { statusOf } from "@/lib/ui";
 
 type Filter = "TODAS" | "PENDENTES" | ApprovalStatus;
-
-function statusOf(item: AgendaWithApproval): ApprovalStatus {
-  if (item.approval) return item.approval.status;
-  if (item.score.legalHold) return "AGUARDAR_JURIDICO";
-  return "PENDENTE";
-}
+type View = "lista" | "calendario";
 
 export function Dashboard() {
   const router = useRouter();
@@ -19,7 +17,10 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("PENDENTES");
+  const [view, setView] = useState<View>("lista");
   const [approverName, setApproverName] = useState("");
+  const [selectedCarimbo, setSelectedCarimbo] = useState<string | null>(null);
+  const [officialAgendaUrl, setOfficialAgendaUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,6 +30,7 @@ export function Dashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao carregar agendas.");
       setItems(data.items);
+      if (data.officialAgendaUrl) setOfficialAgendaUrl(data.officialAgendaUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro desconhecido.");
     } finally {
@@ -81,15 +83,28 @@ export function Dashboard() {
     { key: "TODAS", label: `Todas (${counts.TODAS})` },
   ];
 
+  const selectedItem = items.find((i) => i.agenda.carimbo === selectedCarimbo) ?? null;
+  const containerWidth = view === "calendario" ? "max-w-5xl" : "max-w-3xl";
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className={`${containerWidth} mx-auto px-4 py-4 flex items-center justify-between transition-[max-width]`}>
           <div>
             <h1 className="font-semibold text-slate-900">Aprovação de Agendas</h1>
             <p className="text-xs text-slate-500">Pré-campanha Valéria Bolsonaro</p>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            {officialAgendaUrl && (
+              <a
+                href={officialAgendaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-600 hover:text-slate-900 underline decoration-slate-300"
+              >
+                Agenda Oficial (Aprovadas)
+              </a>
+            )}
             <span className="text-slate-500">{approverName}</span>
             <button onClick={load} className="text-slate-600 hover:text-slate-900">
               Atualizar
@@ -99,24 +114,40 @@ export function Dashboard() {
             </button>
           </div>
         </div>
-        <div className="max-w-3xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
-          {filters.map((f) => (
+        <div className={`${containerWidth} mx-auto px-4 pb-3 flex items-center justify-between gap-2 transition-[max-width]`}>
+          <div className="flex gap-2 overflow-x-auto">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium border ${
+                  filter === f.key
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="shrink-0 flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium border ${
-                filter === f.key
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-              }`}
+              onClick={() => setView("lista")}
+              className={`px-3 py-1.5 ${view === "lista" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
             >
-              {f.label}
+              Lista
             </button>
-          ))}
+            <button
+              onClick={() => setView("calendario")}
+              className={`px-3 py-1.5 border-l border-slate-200 ${view === "calendario" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+            >
+              Calendário
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <main className={`${containerWidth} mx-auto px-4 py-6 space-y-4 transition-[max-width]`}>
         {loading && <p className="text-sm text-slate-500">Carregando agendas...</p>}
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>
@@ -124,10 +155,25 @@ export function Dashboard() {
         {!loading && !error && filtered.length === 0 && (
           <p className="text-sm text-slate-500">Nenhuma agenda nesse filtro.</p>
         )}
-        {filtered.map((item) => (
-          <AgendaCard key={item.agenda.carimbo} item={item} onDecided={load} />
-        ))}
+
+        {!loading && !error && filtered.length > 0 && view === "lista" && (
+          <div className="space-y-4">
+            {filtered.map((item) => (
+              <AgendaCard key={item.agenda.carimbo} item={item} onDecided={load} />
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && view === "calendario" && (
+          <CalendarView items={filtered} onSelect={(item) => setSelectedCarimbo(item.agenda.carimbo)} />
+        )}
       </main>
+
+      {selectedItem && (
+        <Modal onClose={() => setSelectedCarimbo(null)}>
+          <AgendaCard item={selectedItem} onDecided={load} />
+        </Modal>
+      )}
     </div>
   );
 }

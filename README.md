@@ -7,6 +7,9 @@ com a mesma metodologia de Score de Validação usada nos relatórios automátic
 - A planilha continua sendo a única fonte de verdade das agendas.
 - As decisões de aprovação são gravadas em uma aba nova, **"Aprovações"**, criada automaticamente
   na mesma planilha — nada é sobrescrito na aba de respostas do formulário.
+- Visualização em **lista** ou em **calendário** (por mês), com os mesmos filtros.
+- Agendas aprovadas podem ser espelhadas numa **planilha de Agenda Oficial** separada (opcional, veja
+  item 1.1), pronta pra inclusão manual na agenda real da Deputada.
 - Acesso protegido por senha compartilhada (`APP_PASSWORD`).
 
 ## 1. Criar a credencial do Google (Service Account)
@@ -26,6 +29,24 @@ sistema (sem depender do login de uma pessoa).
    account (o `client_email`, algo como `agenda-aprovacao@SEU-PROJETO.iam.gserviceaccount.com`),
    dando permissão de **Editor** — sem isso o app não consegue gravar as aprovações.
 
+> **Por que não criamos os arquivos automaticamente?** Contas de serviço fora de um Google Workspace
+> não têm cota própria de armazenamento no Drive, então não conseguem criar arquivos novos do zero —
+> só ler/escrever em arquivos que já existem e foram compartilhados com elas. Por isso a planilha de
+> respostas (passo 6 acima) e a planilha de agenda oficial (passo opcional abaixo) precisam ser
+> criadas por uma pessoa e compartilhadas manualmente.
+
+## 1.1 (Opcional) Planilha de Agenda Oficial
+
+Quando uma agenda é aprovada, o sistema pode gravar os dados completos dela (data, local, contato de
+quem recebe, etc.) numa planilha separada, pronta pra alguém incluir manualmente na agenda oficial da
+Deputada. Pra ativar isso:
+
+1. Crie uma planilha Google nova e vazia (ex: "Agenda Oficial - Aprovações").
+2. Compartilhe com o mesmo `client_email` da service account, como **Editor**.
+3. Copie o ID dela (a parte da URL entre `/d/` e `/edit`) na variável `OFFICIAL_AGENDA_SHEET_ID`.
+
+Se essa variável ficar em branco, o sistema funciona normalmente, só sem essa planilha extra.
+
 ## 2. Configurar variáveis de ambiente
 
 Copie `.env.local.example` para `.env.local` e preencha:
@@ -41,6 +62,7 @@ cp .env.local.example .env.local
 | `GOOGLE_PRIVATE_KEY` | `private_key` do JSON da service account (entre aspas, com `\n`) |
 | `RESPOSTAS_SHEET_NAME` | Nome da aba de respostas do formulário (padrão: `Respostas ao formulário 1`) |
 | `APROVACOES_SHEET_NAME` | Nome da aba onde as decisões são gravadas (padrão: `Aprovações`, criada automaticamente) |
+| `OFFICIAL_AGENDA_SHEET_ID` | ID da planilha de Agenda Oficial (item 1.1 acima) — opcional |
 | `APP_PASSWORD` | Senha compartilhada para acessar o sistema |
 | `SESSION_SECRET` | Qualquer string aleatória longa, usada para assinar o cookie de sessão |
 
@@ -93,11 +115,16 @@ app/
   api/login/route.ts      → POST: valida a senha e cria o cookie de sessão
   api/logout/route.ts     → POST: remove o cookie de sessão
 components/
-  Dashboard.tsx           → lista, filtros e contadores
-  AgendaCard.tsx          → card de cada agenda com os botões de decisão
+  Dashboard.tsx           → lista/calendário, filtros, contadores e o link da Agenda Oficial
+  AgendaCard.tsx          → card de cada agenda com os detalhes completos e os botões de decisão
+  CalendarView.tsx        → visualização em calendário (mês, navegação, chips por dia)
+  Modal.tsx               → overlay genérico usado pro detalhe de uma agenda ao clicar no calendário
 lib/
   sheets.ts               → cliente do Google Sheets (leitura das agendas e das aprovações)
+  officialAgenda.ts       → grava/revoga linhas na planilha de Agenda Oficial (item 1.1)
+  googleAuth.ts           → autenticação compartilhada (service account) usada por sheets.ts e officialAgenda.ts
   score.ts                → metodologia de score e trava jurídica
   auth.ts                 → sessão simples por senha compartilhada
+  ui.ts                   → labels, cores e helpers de data compartilhados entre lista e calendário
 proxy.ts                  → protege todas as rotas exceto /login (Next.js 16 renomeou "middleware" para "proxy")
 ```

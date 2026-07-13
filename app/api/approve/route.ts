@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertApproval } from "@/lib/sheets";
+import { upsertOfficialAgendaRow, markOfficialAgendaRevoked } from "@/lib/officialAgenda";
 import { APPROVER_COOKIE_NAME } from "@/lib/auth";
 import { ApprovalStatus } from "@/lib/types";
 
@@ -12,7 +13,7 @@ const VALID_STATUSES: ApprovalStatus[] = [
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { carimbo, nomeEvento, assessor, status, comentario, scoreBase, faixa } = body;
+  const { carimbo, nomeEvento, assessor, status, comentario, scoreBase, faixa, agenda } = body;
 
   if (!carimbo || !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
@@ -21,17 +22,25 @@ export async function POST(request: NextRequest) {
   const approverCookie = request.cookies.get(APPROVER_COOKIE_NAME)?.value;
   const aprovador = approverCookie ? decodeURIComponent(approverCookie) : "Desconhecido";
 
-  await upsertApproval({
+  const approval = {
     carimbo,
     nomeEvento: nomeEvento ?? "",
     assessor: assessor ?? "",
-    status,
+    status: status as ApprovalStatus,
     aprovador,
     dataDecisao: new Date().toISOString(),
     comentario: comentario ?? "",
     scoreBase: Number(scoreBase ?? 0),
     faixa: faixa ?? "REAVALIAR",
-  });
+  };
+
+  await upsertApproval(approval);
+
+  if (status === "APROVADA" && agenda) {
+    await upsertOfficialAgendaRow(agenda, approval);
+  } else {
+    await markOfficialAgendaRevoked(carimbo, status);
+  }
 
   return NextResponse.json({ ok: true });
 }

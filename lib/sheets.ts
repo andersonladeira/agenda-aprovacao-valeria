@@ -1,5 +1,6 @@
 import { google, sheets_v4 } from "googleapis";
 import { AgendaRecord, ApprovalRecord, ApprovalStatus } from "./types";
+import { getEnv, getGoogleAuth } from "./googleAuth";
 
 const RESPOSTAS_SHEET_NAME = process.env.RESPOSTAS_SHEET_NAME || "Respostas ao formulário 1";
 const APROVACOES_SHEET_NAME = process.env.APROVACOES_SHEET_NAME || "Aprovações";
@@ -16,54 +17,11 @@ const APROVACOES_HEADERS = [
   "Faixa",
 ];
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `Variável de ambiente ${name} não configurada. Veja o README para o passo a passo de configuração.`
-    );
-  }
-  return value;
-}
-
 let cachedClient: sheets_v4.Sheets | null = null;
-
-/**
- * Normaliza a chave privada colada em variáveis de ambiente: remove aspas
- * externas que sobram ao copiar de um .env, e converte "\n" literais em
- * quebras de linha reais (o formato PEM exige quebras de linha de verdade).
- */
-function normalizePrivateKey(raw: string): string {
-  let key = raw.trim();
-  if (
-    (key.startsWith('"') && key.endsWith('"')) ||
-    (key.startsWith("'") && key.endsWith("'"))
-  ) {
-    key = key.slice(1, -1);
-  }
-  return key.replace(/\\n/g, "\n").trim();
-}
 
 function getClient(): sheets_v4.Sheets {
   if (cachedClient) return cachedClient;
-
-  const email = getEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = normalizePrivateKey(getEnv("GOOGLE_PRIVATE_KEY"));
-
-  if (!privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
-    throw new Error(
-      "GOOGLE_PRIVATE_KEY não parece um PEM válido (faltando o cabeçalho -----BEGIN PRIVATE KEY-----). " +
-        "Confira se o valor colado nas variáveis de ambiente não incluiu aspas extras ou ficou cortado."
-    );
-  }
-
-  const auth = new google.auth.JWT({
-    email,
-    key: privateKey,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-
-  cachedClient = google.sheets({ version: "v4", auth });
+  cachedClient = google.sheets({ version: "v4", auth: getGoogleAuth() });
   return cachedClient;
 }
 

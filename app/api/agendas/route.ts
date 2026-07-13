@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAgendas, getApprovals } from "@/lib/sheets";
+import { getOfficialAgendaInfo } from "@/lib/officialAgenda";
 import { computeScore } from "@/lib/score";
 import { AgendaWithApproval } from "@/lib/types";
 
@@ -14,6 +15,7 @@ function parseCarimbo(carimbo: string): number {
 export async function GET() {
   try {
     const [agendas, approvals] = await Promise.all([getAgendas(), getApprovals()]);
+    const officialAgenda = getOfficialAgendaInfo();
 
     const items: AgendaWithApproval[] = agendas
       .map((agenda) => ({
@@ -24,7 +26,7 @@ export async function GET() {
       // ordem de chegada (carimbo de data/hora), da mais antiga para a mais recente
       .sort((a, b) => parseCarimbo(a.agenda.carimbo) - parseCarimbo(b.agenda.carimbo));
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, officialAgendaUrl: officialAgenda?.webViewLink ?? null });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
