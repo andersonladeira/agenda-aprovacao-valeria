@@ -18,7 +18,7 @@ export function Dashboard() {
   const [items, setItems] = useState<AgendaWithApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("TODAS");
+  const [filter, setFilter] = useState<Filter>("PENDENTES");
   const [approverName, setApproverName] = useState("");
 
   const load = useCallback(async () => {
@@ -74,11 +74,11 @@ export function Dashboard() {
   }
 
   const filters: { key: Filter; label: string }[] = [
-    { key: "TODAS", label: `Todas (${counts.TODAS})` },
     { key: "PENDENTES", label: `Pendentes (${counts.PENDENTES})` },
     { key: "AGUARDAR_JURIDICO", label: `Aguardar Jurídico (${counts.AGUARDAR_JURIDICO})` },
     { key: "APROVADA", label: `Aprovadas (${counts.APROVADA})` },
     { key: "REJEITADA", label: `Rejeitadas (${counts.REJEITADA})` },
+    { key: "TODAS", label: `Todas (${counts.TODAS})` },
   ];
 
   return (

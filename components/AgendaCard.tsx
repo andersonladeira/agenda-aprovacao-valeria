@@ -32,6 +32,16 @@ function formatCarimbo(carimbo: string): string {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
+function Field({ label, value }: { label: string; value?: string }) {
+  const display = value && value.trim().length > 0 ? value : "—";
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="text-sm text-slate-800">{display}</dd>
+    </div>
+  );
+}
+
 export function AgendaCard({
   item,
   onDecided,
@@ -110,7 +120,51 @@ export function AgendaCard({
         </p>
       )}
 
-      <div className="flex items-center gap-2 pt-1">
+      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
+        <Field label="Tipo de agenda" value={agenda.raw["Tipo de agenda"]} />
+        <Field label="Local" value={agenda.raw["Local"]} />
+        <Field label="Endereço completo" value={agenda.raw["Endereço completo"]} />
+        <Field
+          label="Quem vai receber"
+          value={agenda.raw["Quem é o responsável por receber a Deputada e equipe?"]}
+        />
+        <Field
+          label="Contato de quem recebe"
+          value={agenda.raw["Contato do Responsaável"] || agenda.raw["Contato do Responsável"]}
+        />
+        <Field label="Público estimado" value={agenda.raw["Público estimado"]} />
+        <Field label="Lideranças presentes" value={agenda.raw["Quantas lideranças estarão presentes?"]} />
+        <Field label="Autoridades confirmadas" value={agenda.raw["Autoridades confirmadas"]} />
+        <Field label="A deputada falará?" value={agenda.raw["A deputada falará?"]} />
+        <Field label="Tempo previsto de fala" value={agenda.raw["Tempo previsto de fala"]} />
+        <Field
+          label="Quem convidou"
+          value={[agenda.raw["Nome"], agenda.raw["Cargo"]].filter(Boolean).join(" — ")}
+        />
+        <Field label="Perfil de quem convidou" value={agenda.raw["Essa pessoa é:"]} />
+        <Field label="Inauguração de obra pública?" value={agenda.raw["O evento é inauguração de obra pública?"]} />
+        <Field label="Pedido de discurso?" value={agenda.raw["Existe pedido para discurso?"]} />
+        <Field label="Entrega pública prevista?" value={agenda.raw["Existe alguma entrega pública prevista?"]} />
+      </dl>
+
+      {agenda.raw["OBSERVAÇÕES"] && (
+        <p className="text-sm text-slate-600 border-t border-slate-100 pt-3">
+          <strong className="text-slate-800 font-medium">Observações:</strong> {agenda.raw["OBSERVAÇÕES"]}
+        </p>
+      )}
+
+      {(() => {
+        const duvida = agenda.raw["Existe alguma dúvida jurídica relacionada a essa agenda?"];
+        const temDuvida = duvida && !["não", "nao", "nenhuma", "não há", "nao ha"].includes(duvida.trim().toLowerCase());
+        if (!temDuvida) return null;
+        return (
+          <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <strong className="font-medium">Dúvida jurídica registrada:</strong> {duvida}
+          </p>
+        );
+      })()}
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
         {score.isTest ? (
           <span className="rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">
             ⚠️ Dado de teste — não avaliado
@@ -129,11 +183,15 @@ export function AgendaCard({
             </span>
           </>
         )}
-        {score.legalHold && (
-          <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-            🔒 {score.legalHoldReasons[0]}
-          </span>
-        )}
+        {score.legalHold &&
+          score.legalHoldReasons.map((reason, i) => (
+            <span
+              key={i}
+              className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800"
+            >
+              🔒 {reason}
+            </span>
+          ))}
       </div>
 
       {approval && (
